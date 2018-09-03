@@ -6,6 +6,12 @@ const functions = require('firebase-functions');
 const {WebhookClient} = require('dialogflow-fulfillment');
 const {Card, Suggestion} = require('dialogflow-fulfillment');
 
+process.env.DEBUG = 'dialogflow:debug'; // enables lib debugging statements
+
+var admin = require("firebase-admin");
+
+var serviceAccount = require("./config/udemy-demo-assistant-7912e-firebase-adminsdk-63ims-24dd853435.json");
+
 admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
     databaseURL: "https://udemy-demo-assistant-7912e.firebaseio.com"
