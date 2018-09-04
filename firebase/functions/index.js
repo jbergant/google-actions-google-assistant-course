@@ -23,7 +23,7 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
   console.log('Dialogflow Request body: ' + JSON.stringify(request.body));
   console.log('Dialogflow Intent: ' + agent.intent);
   console.log('Dialogflow Parameters: ' + agent.parameters);
-  console.log('Dialogflow Music: ' + agent.parameters['music-artist']);
+  console.log('Dialogflow Music: ' + agent.parameters['Singer']);
  
   function welcome(agent) {
     agent.add(`Welcome to my agent!`);
@@ -35,8 +35,32 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
 }
 
   function voting(agent) {
-    agent.add(`Voting localy for ` + agent.parameters['music-artist']);
-    // save the vote to a database
+      console.log('calling voting');
+    let responseText = '';
+    let singer = agent.parameters['Singer'];
+    if ( singer !== '' ) {
+      let artistName = singer.replace(' ', ''). toLowerCase();
+      let currentArtist = admin.database().ref().child('/artists/' + artistName);
+
+        currentArtist.once('value', function (snapshot) {
+            if ( snapshot.exists() && snapshot.hasChild('votes') ) {
+              let obj = snapshot.val();
+              currentArtist.update({
+                  votes: obj.votes + 1
+              })
+            } else {
+                currentArtist.set({
+                    votes: 1
+                })
+            }
+        });
+        responseText = 'Thank you for voting!';
+    } else {
+      //???
+    }
+
+    agent.add(responseText);
+
   }
 
   // // Uncomment and edit to make your own intent handler
