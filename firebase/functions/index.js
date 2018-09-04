@@ -1,7 +1,7 @@
 // See https://github.com/dialogflow/dialogflow-fulfillment-nodejs
 // for Dialogflow fulfillment library docs, samples, and to report issues
 'use strict';
- 
+
 const functions = require('firebase-functions');
 const {WebhookClient} = require('dialogflow-fulfillment');
 const {Card, Suggestion} = require('dialogflow-fulfillment');
@@ -16,55 +16,70 @@ admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
     databaseURL: "https://udemy-demo-assistant-7912e.firebaseio.com"
 });
- 
+
 exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, response) => {
-  const agent = new WebhookClient({ request, response });
-  console.log('Dialogflow Request headers: ' + JSON.stringify(request.headers));
-  console.log('Dialogflow Request body: ' + JSON.stringify(request.body));
-  console.log('Dialogflow Intent: ' + agent.intent);
-  console.log('Dialogflow Parameters: ' + agent.parameters);
-  console.log('Dialogflow Music: ' + agent.parameters['Singer']);
- 
-  function welcome(agent) {
-    agent.add(`Welcome to my agent!`);
-  }
- 
-  function fallback(agent) {
-    agent.add(`I didn't understand`);
-    agent.add(`I'm sorry, can you try again?`);
-}
+    const agent = new WebhookClient({ request, response });
+    console.log('Dialogflow Request headers: ' + JSON.stringify(request.headers));
+    console.log('Dialogflow Request body: ' + JSON.stringify(request.body));
 
-  function voting(agent) {
-      console.log('calling voting');
-    let responseText = '';
-    let singer = agent.parameters['Singer'];
-    if ( singer !== '' ) {
-      let artistName = singer.replace(' ', ''). toLowerCase();
-      let currentArtist = admin.database().ref().child('/artists/' + artistName);
-
-        currentArtist.once('value', function (snapshot) {
-            if ( snapshot.exists() && snapshot.hasChild('votes') ) {
-              let obj = snapshot.val();
-              currentArtist.update({
-                  votes: obj.votes + 1
-              })
-            } else {
-                currentArtist.set({
-                    votes: 1
-                })
-            }
-        });
-        responseText = 'Thank you for voting!';
-    } else {
-      //???
+    function welcome(agent) {
+        agent.add(`Welcome to my agent!`);
     }
 
-    agent.add(responseText);
+    function fallback(agent) {
+        agent.add(`I didn't understand`);
+        agent.add(`I'm sorry, can you try again?`);
+    }
 
-  }
+    function voting(agent) {
+        let conv = agent.conv(); // Get Actions on Google library conv instance
 
-  // // Uncomment and edit to make your own intent handler
-   // uncomment `intentMap.set('your intent name here', yourFunctionHandler);`
+        let endConversation = false;
+        let responseText = '';
+        let singer = agent.parameters['Singer'];
+
+        if ( singer !== '' ) {
+            let artistName = singer.replace(' ', ''). toLowerCase();
+            let currentArtist = admin.database().ref().child('/artists/' + artistName);
+
+            currentArtist.once('value', function (snapshot) {
+                if ( snapshot.exists() && snapshot.hasChild('votes') ) {
+                    let obj = snapshot.val();
+                    currentArtist.update({
+                        votes: obj.votes + 1
+                    })
+                } else {
+                    currentArtist.set({
+                        votes: 1
+                    })
+                }
+            });
+            responseText = 'Thank you for voting!';
+        } else {
+            if (conv.data.voteFallback === undefined ) {
+                conv.data.voteFallback = 0;
+            }
+            conv.data.voteFallback++;
+            if ( conv.data.voteFallback > 2 ) {
+                responseText = 'Thank you for voting. Your vote was refused. Try again later.';
+                endConversation = true;
+            } else {
+                console.log('fulfillmentText');
+                responseText = request.body.queryResult.fulfillmentText;
+            }
+        }
+
+        if ( endConversation ) {
+            conv.close(responseText);
+        } else {
+            conv.ask(responseText);
+        }
+        agent.add(conv);
+
+    }
+
+    // // Uncomment and edit to make your own intent handler
+    // uncomment `intentMap.set('your intent name here', yourFunctionHandler);`
 //   // below to get this function to be run when a Dialogflow intent is matched
 //   function yourFunctionHandler(agent) {
 //      agent.add(`This message is from Dialogflow's Cloud Functions for Firebase editor!`);
@@ -89,16 +104,16 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
 //      conv.ask('Hello from the Actions on Google client library!') // Use Actions on Google library
 //      agent.add(conv); // Add Actions on Google library responses to your agent's response
 //   }
-   // See https://github.com/dialogflow/dialogflow-fulfillment-nodejs/tree/master/samples/actions-on-google
-   // for a complete Dialogflow fulfillment library Actions on Google client library v2 integration sample
+    // See https://github.com/dialogflow/dialogflow-fulfillment-nodejs/tree/master/samples/actions-on-google
+    // for a complete Dialogflow fulfillment library Actions on Google client library v2 integration sample
 
 //   Run the proper function handler based on the matched Dialogflow intent name
-  let intentMap = new Map();
-  intentMap.set('Default Welcome Intent', welcome);
-  intentMap.set('Default Fallback Intent', fallback);
-  intentMap.set('music vote', voting);
+    let intentMap = new Map();
+    intentMap.set('Default Welcome Intent', welcome);
+    intentMap.set('Default Fallback Intent', fallback);
+    intentMap.set('music vote', voting);
 
 //   intentMap.set('your intent name here', yourFunctionHandler);
 //   intentMap.set('your intent name here', googleAssistantHandler);
-  agent.handleRequest(intentMap);
+    agent.handleRequest(intentMap);
 });
