@@ -1,4 +1,5 @@
 firebase/functions/node_modules
 firebase/functions/package-lock.json
 .idea
-firebase/functions/config
+firebase/functions/config/**
+!firebase/functions/config/config_sample.js

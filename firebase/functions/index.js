@@ -1,7 +1,6 @@
-// See https://github.com/dialogflow/dialogflow-fulfillment-nodejs
-// for Dialogflow fulfillment library docs, samples, and to report issues
 'use strict';
 
+const config = require('./config/config');
 const functions = require('firebase-functions');
 const {WebhookClient} = require('dialogflow-fulfillment');
 const {Card, Suggestion} = require('dialogflow-fulfillment');
@@ -11,6 +10,11 @@ process.env.DEBUG = 'dialogflow:debug'; // enables lib debugging statements
 var admin = require("firebase-admin");
 
 var serviceAccount = require("./config/udemy-demo-assistant-7912e-firebase-adminsdk-63ims-24dd853435.json");
+
+
+if (!config.MEETUP_KEY) {
+    throw new Error('missing MEETUP_KEY');
+}
 
 admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
