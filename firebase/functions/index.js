@@ -16,6 +16,8 @@ if (!config.MEETUP_KEY) {
     throw new Error('missing MEETUP_KEY');
 }
 
+const requestAPI = require('request-promise');
+
 admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
     databaseURL: "https://udemy-demo-assistant-7912e.firebaseio.com"
@@ -26,6 +28,13 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
     console.log('Dialogflow Request headers: ' + JSON.stringify(request.headers));
     console.log('Dialogflow Request body: ' + JSON.stringify(request.body));
 
+    const conv = agent.conv(); // Get Actions on Google library conv instance
+
+    if (conv !== null && conv.data.meetupData === undefined ) {
+        conv.data.meetupData = [];
+    }
+
+
     function welcome(agent) {
         agent.add(`Welcome to my agent!`);
     }
@@ -33,6 +42,31 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
     function fallback(agent) {
         agent.add(`I didn't understand`);
         agent.add(`I'm sorry, can you try again?`);
+    }
+
+    function showMeetups(agent) {
+        displayMeetup();
+    }
+
+    function displayMeetup() {
+        return requestAPI('https://api.meetup.com/find/upcoming_events?' +
+            '&sign=true&photo-host=public&lon=14.493240&page=30&lat=46.048226&key=' +
+            config.MEETUP_KEY)
+            .then(function (data) {
+                let meetups = JSON.parse(data);
+                if (meetups.hasOwnProperty('events')) {
+                    saveData(meetups.events);
+                }
+            }).catch(function (err) {
+                console.log('No meetups data');
+                console.log(err);
+            });
+    }
+
+    function saveData(data) {
+        if (conv !== null ) {
+            conv.data.meetupData = data;
+        }
     }
 
     async function voteResults(agent) {
@@ -61,7 +95,6 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
     }
 
     function voting(agent) {
-        let conv = agent.conv(); // Get Actions on Google library conv instance
 
         let endConversation = false;
         let responseText = '';
@@ -143,6 +176,7 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
     intentMap.set('Default Fallback Intent', fallback);
     intentMap.set('music vote', voting);
     intentMap.set('vote results', voteResults);
+    intentMap.set('show meetups', showMeetups);
 
 //   intentMap.set('your intent name here', yourFunctionHandler);
 //   intentMap.set('your intent name here', googleAssistantHandler);
