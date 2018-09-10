@@ -3,7 +3,9 @@
 const config = require('./config/config');
 const functions = require('firebase-functions');
 const {WebhookClient} = require('dialogflow-fulfillment');
-const {Card, Suggestion} = require('dialogflow-fulfillment');
+//const {Card, Suggestion} = require('dialogflow-fulfillment');
+
+const { BasicCard, Button, Image} = require('actions-on-google');
 
 process.env.DEBUG = 'dialogflow:debug'; // enables lib debugging statements
 
@@ -33,22 +35,80 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
     if (conv !== null && conv.data.meetupData === undefined ) {
         conv.data.meetupData = [];
     }
-
-
     function welcome(agent) {
         agent.add(`Welcome to my agent!`);
     }
-
     function fallback(agent) {
         agent.add(`I didn't understand`);
         agent.add(`I'm sorry, can you try again?`);
     }
 
-    function showMeetups(agent) {
-        displayMeetup();
+    function checkIfGoogle(agent) {
+        let isGoogle = true;
+        if ( conv === null ) {
+            agent.add(`Only requests from Google Assistant are supported.
+            Find the XXX action on Google Assistant directory!`);
+            isGoogle = false;
+        }
+        return isGoogle;
     }
 
-    function displayMeetup() {
+    async function showMeetups(agent) {
+        if ( checkIfGoogle(agent) ) {
+            let response = await displayMeetup(); // let's display first meetup
+            agent.add(response);
+        }
+    }
+
+    async function displayMeetup() {
+        if (conv.data.meetupData.length === 0 ) {
+            await getMeetupData();
+            return buildSingleMeetupResponse();
+        } else {
+            return buildSingleMeetupResponse();
+        }
+    }
+
+
+    function buildSingleMeetupResponse() {
+        let responseToUser;
+        if ( conv.data.meetupData.length === 0 ) {
+            responseToUser = 'No meetups available at this time!';
+            conv.ask(responseToUser);
+        } else {
+            let meetup = conv.data.meetupData[0];
+            responseToUser = ' Meetup number 1 ';
+            responseToUser += meetup.name;
+            responseToUser += ' by ' + meetup.group.name;
+
+            let date = new Date(meetup.time);
+            responseToUser += ' on ' + date.toDateString() + '.';
+
+            conv.ask(responseToUser);
+
+            if (conv.surface.capabilities.has('actions.capability.SCREEN_OUTPUT')) {
+
+                let image = 'https://raw.githubusercontent.com/jbergant/udemydemoimg/master/meetup.png';
+                conv.ask(new BasicCard({
+                    text: meetup.description,
+                    subtitle: 'by ' + meetup.group.name,
+                    title: meetup.name,
+                    buttons: new Button({
+                        title: 'Read more',
+                        url: meetup.link,
+                    }),
+                    image: new Image({
+                        url: image,
+                        alt: meetup.name,
+                    }),
+                    display: 'CROPPED',
+                }));
+            }
+        }
+        return conv;
+    }
+
+    function getMeetupData() {
         return requestAPI('https://api.meetup.com/find/upcoming_events?' +
             '&sign=true&photo-host=public&lon=14.493240&page=30&lat=46.048226&key=' +
             config.MEETUP_KEY)
