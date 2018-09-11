@@ -85,6 +85,21 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
         }
     }
 
+    async function repeatMeetup(agent) {
+        if ( checkIfGoogle(agent) ) {
+            let response = await displayMeetup();
+            agent.add(response);
+        }
+    }
+
+    async function previousMeetup(agent) {
+        if ( checkIfGoogle(agent) ) {
+            conv.data.meetupCount--;
+            let response = await displayMeetup();
+            agent.add(response);
+        }
+    }
+
     async function nextMeetup(agent) {
         if ( checkIfGoogle(agent) ) {
             conv.data.meetupCount++;
@@ -170,7 +185,10 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
         let responseToUser;
         if ( conv.data.meetupData.length === 0 ) {
             responseToUser = 'No meetups available at this time!';
-            conv.ask(responseToUser);
+            conv.close(responseToUser);
+        } else if ( conv.data.meetupCount < 0 ) {
+            responseToUser = 'No more meetups before this one!';
+            conv.close(responseToUser);
         } else if ( conv.data.meetupCount < conv.data.meetupData.length ) {
             let meetup = conv.data.meetupData[conv.data.meetupCount];
             responseToUser = ' Meetup number ' + (conv.data.meetupCount + 1) + ' ';
@@ -336,6 +354,11 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
     intentMap.set('show meetups - next', nextMeetup);
     intentMap.set('show meetup list', listMeetups);
     intentMap.set('show meetup list - select.number', selectByNumberMeetup);
+    intentMap.set('show meetups - previous', previousMeetup);
+    intentMap.set('show meetups - repeat', repeatMeetup);
+    intentMap.set('show meetup list - select.number - next', nextMeetup);
+    intentMap.set('show meetup list - select.number - previous', previousMeetup);
+    intentMap.set('show meetup list - select.number - repeat', repeatMeetup);
 
 //   intentMap.set('your intent name here', yourFunctionHandler);
 //   intentMap.set('your intent name here', googleAssistantHandler);
