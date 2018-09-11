@@ -59,6 +59,25 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
         return isGoogle;
     }
 
+    async function listMeetups(agent) {
+        if ( checkIfGoogle(agent) ) {
+            let response = await getMeetupList(); // let's display first meetup
+            agent.add(response);
+        }
+    }
+
+    async function getMeetupList() {
+        conv.data.meetupCount = 0;
+        if (conv.data.meetupData.length === 0 ) {
+            await getMeetupData();
+            return buildMeetupListResponse();
+
+        } else {
+            return buildMeetupListResponse();
+
+        }
+    }
+
     async function showMeetups(agent) {
         if ( checkIfGoogle(agent) ) {
             let response = await displayMeetup(); // let's display first meetup
@@ -72,6 +91,50 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
             let response = await displayMeetup(); // let's display first meetup
             agent.add(response);
         }
+    }
+
+    function buildMeetupListResponse() {
+        let responseToUser;
+
+        if ( conv.data.meetupData.length === 0 ) {
+            responseToUser = 'No meetups available at this time!';
+            conv.close(responseToUser);
+        } else {
+            let textList = 'This is a list of meetups. Please select one of them to proceed';
+
+            let image = 'https://raw.githubusercontent.com/jbergant/udemydemoimg/master/meetupS.png';
+            let items = {};
+            for (let i=0; i < conv.data.meetupData.length; i++) {
+                let meetup = conv.data.meetupData[i];
+
+                items['meetup ' + i] = {
+                    title: 'meetup ' + (i + 1),
+                    description: meetup.name,
+                    image: new Image({
+                        url: image,
+                        alt: meetup.name,
+                    }),
+                }
+                if ( i < 3 ) {
+                    responseToUser += ' Meetup number ' + (i + 1) + ':';
+                    responseToUser += meetup.name;
+                    responseToUser += ' by ' + meetup.group.name;
+                    let date = new Date(meetup.time);
+                    responseToUser += ' on ' + date.toDateString() + '. ';
+                }
+            }
+            conv.ask(textList);
+            conv.ask(responseToUser);
+
+            if (conv.surface.capabilities.has('actions.capability.SCREEN_OUTPUT')) {
+                conv.ask(new List({
+                    title: 'List of meetups: ',
+                    items
+                }));
+            }
+
+        }
+        return conv;
     }
 
     async function displayMeetup() {
@@ -252,6 +315,7 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
     intentMap.set('vote results', voteResults);
     intentMap.set('show meetups', showMeetups);
     intentMap.set('show meetups - next', nextMeetup);
+    intentMap.set('show meetup list', listMeetups);
 
 //   intentMap.set('your intent name here', yourFunctionHandler);
 //   intentMap.set('your intent name here', googleAssistantHandler);
