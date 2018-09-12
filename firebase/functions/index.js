@@ -40,6 +40,11 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
         conv.data.meetupCount = 0;
     }
 
+    const hasScreen = conv !== null &&
+        conv.surface.capabilities.has('actions.capability.SCREEN_OUTPUT');
+    const hasAudio = conv !== null &&
+        conv.surface.capabilities.has('actions.capability.AUDIO_OUTPUT');
+
     function welcome(agent) {
         agent.add(`Welcome to my agent!`);
     }
@@ -135,32 +140,49 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
             conv.close(responseToUser);
         } else {
             let textList = 'This is a list of meetups. Please select one of them to proceed';
+            let ssmlText = '<speak>This is a list of meetups. ' +
+                'Please select one of them. <break time="1500ms" />';
 
             let image = 'https://raw.githubusercontent.com/jbergant/udemydemoimg/master/meetupS.png';
             let items = {};
             for (let i=0; i < conv.data.meetupData.length; i++) {
                 let meetup = conv.data.meetupData[i];
+                if (hasScreen) {
+                    items['meetup ' + i] = {
+                        title: 'meetup ' + (i + 1),
+                        description: meetup.name,
+                        image: new Image({
+                            url: image,
+                            alt: meetup.name,
+                        }),
+                    }
+                }
+                responseToUser += ' Meetup number ' + (i + 1) + ':';
+                responseToUser += meetup.name;
+                responseToUser += ' by ' + meetup.group.name;
+                let date = new Date(meetup.time);
+                responseToUser += ' on ' + date.toDateString() + '. ';
 
-                items['meetup ' + i] = {
-                    title: 'meetup ' + (i + 1),
-                    description: meetup.name,
-                    image: new Image({
-                        url: image,
-                        alt: meetup.name,
-                    }),
+                if (i < 3 ) {
+                    ssmlText += '  <say-as interpret-as="ordinal">' + (i + 1) + '</say-as> meetup. ' +
+                        '  <break time="500ms" />' +
+                        'Is ' + meetup.name + '. <break time="700ms" />' +
+                        ' On ' + date.toDateString() + '.' +
+                        ' For more information say "meetup ' + (i + 1) + '". <break time="1200ms" />';
                 }
-                if ( i < 3 ) {
-                    responseToUser += ' Meetup number ' + (i + 1) + ':';
-                    responseToUser += meetup.name;
-                    responseToUser += ' by ' + meetup.group.name;
-                    let date = new Date(meetup.time);
-                    responseToUser += ' on ' + date.toDateString() + '. ';
-                }
+
             }
-            conv.ask(textList);
-            conv.ask(responseToUser);
+            ssmlText += '</speak>';
 
-            if (conv.surface.capabilities.has('actions.capability.SCREEN_OUTPUT')) {
+            if ( hasAudio ) {
+                conv.ask(ssmlText.replace('&', ' and '));
+            } else {
+                conv.ask(textList);
+                conv.ask(responseToUser);
+
+            }
+
+            if (hasScreen) {
                 conv.ask(new List({
                     title: 'List of meetups: ',
                     items
@@ -197,11 +219,24 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
 
             let date = new Date(meetup.time);
             responseToUser += ' on ' + date.toDateString() + '.';
+            responseToUser += ' Write or say next meetup to see more.';
 
-            conv.ask(responseToUser);
+            if ( hasAudio ) {
+                let ssmlText = '<speak>' +
+                    ' <say-as interpret-as="ordinal">' + (conv.data.meetupCount + 1) + '</say-as> meetup. ' +
+                    ' Is ' + meetup.name + '. <break time="1" />' +
+                    ' By ' + meetup.group.name + '. <break time="1" />' +
+                    ' On ' + date.toDateString() + '. <break time="1" />' +
+                    '<break time="600ms" />For more visit website. <break time="800ms" />' +
+                    ' Say next meetup for more.' +
+                    '</speak>';
+                conv.ask(ssmlText.replace('&', ' and '));
+            } else {
+                conv.ask(responseToUser);
+            }
 
-            if (conv.surface.capabilities.has('actions.capability.SCREEN_OUTPUT')) {
 
+            if (hasScreen) {
                 let image = 'https://raw.githubusercontent.com/jbergant/udemydemoimg/master/meetup.png';
                 conv.ask(new BasicCard({
                     text: meetup.description,
