@@ -236,6 +236,19 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
                 console.log(err);
             });
     }
+    
+    function panicAttack() {
+        if ( checkIfGoogle(agent) ) {
+            conv.ask('<speak>\n' +
+                '  Step 1, take a deep breath. <break time="2600ms"/>\n' +
+                '  Step 2, exhale.\n' +
+                '  Step 3, take a deep breath again. <break strength="weak"/>\n' +
+                '  Step 4, exhale.\n' +
+                '</speak>'
+            );
+            agent.add(conv);
+        }
+    }
 
     function saveData(data) {
         if (conv !== null ) {
@@ -359,6 +372,7 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
     intentMap.set('show meetup list - select.number - next', nextMeetup);
     intentMap.set('show meetup list - select.number - previous', previousMeetup);
     intentMap.set('show meetup list - select.number - repeat', repeatMeetup);
+    intentMap.set('panic attacks', panicAttack);
 
 //   intentMap.set('your intent name here', yourFunctionHandler);
 //   intentMap.set('your intent name here', googleAssistantHandler);
