@@ -426,6 +426,23 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
 
     }
 
+    function calculateInvestment(investDate, sellDate) {
+
+
+        let investPrice // get from API
+        let sellPrice // get from API
+
+        let startBitcoin = conv.data.bitcoinInvestment / investPrice;
+        let earned = startBitcoin * sellPrice - conv.data.bitcoinInvestment;
+
+        return {
+            investPrice,
+            sellPrice,
+            startBitcoin,
+            earned
+        };
+    }
+
     function formatDate(date) {
         let month = date.getMonth() + 1;
         if ( month < 10 ) month = '0' + month;
