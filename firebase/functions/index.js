@@ -32,6 +32,10 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
 
     const conv = agent.conv(); // Get Actions on Google library conv instance
 
+    if ( conv !== null && conv.data.bitcoinInvestment === undefined ) {
+        conv.data.bitcoinInvestment = 10000;
+    }
+
     if ( conv !== null && conv.data.meetupData === undefined ) {
         conv.data.meetupData = [];
     }
@@ -363,39 +367,103 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
 
     }
 
-    // // Uncomment and edit to make your own intent handler
-    // uncomment `intentMap.set('your intent name here', yourFunctionHandler);`
-//   // below to get this function to be run when a Dialogflow intent is matched
-//   function yourFunctionHandler(agent) {
-//      agent.add(`This message is from Dialogflow's Cloud Functions for Firebase editor!`);
-//      agent.add(new Card({
-//          title: `Title: this is a card title`,
-//          imageUrl: 'https://developers.google.com/actions/images/badges/XPM_BADGING_GoogleAssistant_VER.png',
-//          text: `This is the body text of a card.  You can even use line\n  breaks and emoji! 💁`,
-//          buttonText: 'This is a button',
-//          buttonUrl: 'https://assistant.google.com/'
-//       })
-//      );
-//      agent.add(new Suggestion(`Quick Reply`));
-//      agent.add(new Suggestion(`Suggestion`));
-//      agent.setContext({ name: 'weather', lifespan: 2, parameters: { city: 'Rome' }});
-//   }
 
-//   // Uncomment and edit to make your own Google Assistant intent handler
-//   // uncomment `intentMap.set('your intent name here', googleAssistantHandler);`
-//   // below to get this function to be run when a Dialogflow intent is matched
-//   function googleAssistantHandler(agent) {
-//      let conv = agent.conv(); // Get Actions on Google library conv instance
-//      conv.ask('Hello from the Actions on Google client library!') // Use Actions on Google library
-//      agent.add(conv); // Add Actions on Google library responses to your agent's response
-//   }
-    // See https://github.com/dialogflow/dialogflow-fulfillment-nodejs/tree/master/samples/actions-on-google
-    // for a complete Dialogflow fulfillment library Actions on Google client library v2 integration sample
+    function earnWithBitcoinPeriod() {
+        if ( ! agent.parameters.hasOwnProperty('buyDate') ) {
+            conv.ask('You did not specify any parameters');
+            agent.add(conv);
+            return;
+        }
+
+        let dateUnit = (agent.parameters['buyDate'].hasOwnProperty('date-unit')) ?
+            agent.parameters['buyDate']['date-unit'] : false;                       // day, month, year
+
+        let datePeriod = (agent.parameters['buyDate'].hasOwnProperty('date-period')) ?
+            agent.parameters['buyDate']['date-period'] : false;                     // beginning or end
+
+        let number = (agent.parameters['buyDate'].hasOwnProperty('number')) ?
+            agent.parameters['buyDate']['number'] : 0;
+        if ( !datePeriod && number === 0 ) number = 1; // a period ago
+
+        let now = new Date();
+        let dateToCalculate = new Date();
+
+        switch (dateUnit) {
+            case 'day':
+                dateToCalculate.setDate(now.getDate() - number);
+                break;
+            case 'month':
+                dateToCalculate.setMonth(now.getMonth() + 1 - number);
+                if (datePeriod === 'end') {
+                    dateToCalculate.setDate(Date(now.getFullYear(), dateToCalculate.getMonth() + 1, 0).getDate());
+                } else if (datePeriod === 'beginning') {
+                    dateToCalculate.setDate(1);
+                }
+
+                break;
+            case 'year':
+                if (datePeriod === 'end') {
+                    dateToCalculate.setDate(31);
+                    dateToCalculate.setMonth(12);
+                } else if (datePeriod === 'beginning') {
+                    dateToCalculate.setDate(1);
+                    dateToCalculate.setMonth(1);
+                }
+
+                if ( number > 2000 ) dateToCalculate.setFullYear(number);
+                else if ( number < 20 ) {
+                    dateToCalculate.setFullYear(now.getFullYear() - number);
+
+                }
+                break;
+        }
+        let investDate = formatDate(dateToCalculate);
+
+        now.setDate(now.getDate() - 1);
+        let sellDate = formatDate(now);
+
+        let investment = calculateInvestment(investDate, sellDate);
+
+    }
+
+    function formatDate(date) {
+        let month = date.getMonth() + 1;
+        if ( month < 10 ) month = '0' + month;
+        let day = date.getDate();
+        if ( day < 10 ) day = '0' + day;
+        return date.getFullYear() + "-" + month + "-" + day;
+    }
+
+
+    function calculateInvestment(investDate, sellDate) {
+
+        let investPrice // get from API
+        let sellPrice // get from API
+
+        let startBitcoin = conv.data.bitcoinInvestment / investPrice;
+        let earned = startBitcoin * sellPrice - conv.data.bitcoinInvestment;
+
+        return {
+            investPrice,
+            sellPrice,
+            startBitcoin,
+            earned
+        };
+    }
+
+    function formatDate(date) {
+        let month = date.getMonth() + 1;
+        if ( month < 10 ) month = '0' + month;
+        let day = date.getDate();
+        if ( day < 10 ) day = '0' + day;
+        return date.getFullYear() + "-" + month + "-" + day;
+    }
 
 //   Run the proper function handler based on the matched Dialogflow intent name
     let intentMap = new Map();
     intentMap.set('Default Welcome Intent', welcome);
     intentMap.set('Default Fallback Intent', fallback);
+    intentMap.set('earn with bitcoin in specific period', earnWithBitcoinPeriod);
     intentMap.set('music vote', voting);
     intentMap.set('vote results', voteResults);
     intentMap.set('show meetups', showMeetups);
