@@ -35,7 +35,7 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
     if ( conv !== null && conv.data.bitcoinInvestment === undefined ) {
         conv.data.bitcoinInvestment = 10000;
     }
-
+    
     if ( conv !== null && conv.data.meetupData === undefined ) {
         conv.data.meetupData = [];
     }
@@ -367,7 +367,6 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
 
     }
 
-
     function earnWithBitcoinPeriod() {
         if ( ! agent.parameters.hasOwnProperty('buyDate') ) {
             conv.ask('You did not specify any parameters');
@@ -393,9 +392,9 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
                 dateToCalculate.setDate(now.getDate() - number);
                 break;
             case 'month':
-                dateToCalculate.setMonth(now.getMonth() + 1 - number);
+                dateToCalculate.setMonth(now.getMonth() - number);
                 if (datePeriod === 'end') {
-                    dateToCalculate.setDate(Date(now.getFullYear(), dateToCalculate.getMonth() + 1, 0).getDate());
+                    dateToCalculate.setDate(new Date(now.getFullYear(), dateToCalculate.getMonth() + 1, 0).getDate());
                 } else if (datePeriod === 'beginning') {
                     dateToCalculate.setDate(1);
                 }
@@ -404,10 +403,10 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
             case 'year':
                 if (datePeriod === 'end') {
                     dateToCalculate.setDate(31);
-                    dateToCalculate.setMonth(12);
+                    dateToCalculate.setMonth(11);
                 } else if (datePeriod === 'beginning') {
                     dateToCalculate.setDate(1);
-                    dateToCalculate.setMonth(1);
+                    dateToCalculate.setMonth(0);
                 }
 
                 if ( number > 2000 ) dateToCalculate.setFullYear(number);
@@ -426,21 +425,8 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
 
     }
 
-    function calculateInvestment(investDate, sellDate) {
-
-
-        let investPrice // get from API
-        let sellPrice // get from API
-
-        let startBitcoin = conv.data.bitcoinInvestment / investPrice;
-        let earned = startBitcoin * sellPrice - conv.data.bitcoinInvestment;
-
-        return {
-            investPrice,
-            sellPrice,
-            startBitcoin,
-            earned
-        };
+    function formatMoney(num) {
+        return num.toString().replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1,');
     }
 
     function formatDate(date) {
@@ -452,10 +438,10 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
     }
 
 
-    function calculateInvestment(investDate, sellDate) {
+    async function calculateInvestment(investDate, sellDate) {
 
-        let investPrice // get from API
-        let sellPrice // get from API
+        let investPrice = await getBitcoinPrice(investDate);
+        let sellPrice = await getBitcoinPrice(sellDate);
 
         let startBitcoin = conv.data.bitcoinInvestment / investPrice;
         let earned = startBitcoin * sellPrice - conv.data.bitcoinInvestment;
@@ -466,6 +452,22 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
             startBitcoin,
             earned
         };
+    }
+
+    function getBitcoinPrice(dateToRead) {
+
+        return requestAPI('https://api.coindesk.com/v1/bpi/historical/close.json?start=' + dateToRead+
+            '&end=' + dateToRead + '&currency=eur')
+            .then(function (data) {
+                let bitcoinPrice = JSON.parse(data);
+                if (bitcoinPrice.hasOwnProperty('bpi') && bitcoinPrice['bpi'].hasOwnProperty(dateToRead)) {
+                    return bitcoinPrice['bpi'][dateToRead];
+                }
+
+            }).catch(function (err) {
+                console.log('No bitcoin data');
+                console.log(err);
+            });
     }
 
     function formatDate(date) {
