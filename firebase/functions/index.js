@@ -367,7 +367,7 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
 
     }
 
-    function earnWithBitcoinPeriod() {
+    async function earnWithBitcoinPeriod() {
         if ( ! agent.parameters.hasOwnProperty('buyDate') ) {
             conv.ask('You did not specify any parameters');
             agent.add(conv);
@@ -421,8 +421,20 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
         now.setDate(now.getDate() - 1);
         let sellDate = formatDate(now);
 
-        let investment = calculateInvestment(investDate, sellDate);
+        let investment = await calculateInvestment(investDate, sellDate);
 
+        let earned = formatMoney(investment.earned.toFixed(2));
+
+        let response = 'Investment price on ' + dateToCalculate.toDateString() +
+            ' was: ' + formatMoney(investment.investPrice.toFixed(2)) + '. ' +
+            'With the investment of : ' + formatMoney(conv.data.bitcoinInvestment) + ' EURO ' +
+            'you would buy ' + investment.startBitcoin.toFixed(2) + ' bitcoins. ' +
+            'Selling price yesterday would be ' + formatMoney(investment.sellPrice.toFixed(2)) + ' EURO. ' +
+            'If you sold your ' + investment.startBitcoin.toFixed(2) + ' of bitcoins' +
+            ' you would have earned: ' + earned + ' euros ';
+
+        conv.ask(response);
+        agent.add(conv);
     }
 
     function formatMoney(num) {
