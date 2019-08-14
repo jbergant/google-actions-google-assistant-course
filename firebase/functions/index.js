@@ -434,6 +434,19 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
             ' you would have earned: ' + earned + ' euros ';
 
         conv.ask(response);
+        conv.ask(new BasicCard({
+            text: `Bitcoin price on ${dateToCalculate.toDateString()}: ${formatMoney(investment.investPrice.toFixed(2))}.  \n
+Investment: ${formatMoney(conv.data.bitcoinInvestment)} euro.  \n  
+Selling price yesterday: ${formatMoney(investment.sellPrice.toFixed(2))} euro.  \n   
+Revenue: ${earned} euros.  \n`,
+            subtitle: `Investment date: ${dateToCalculate.toDateString()}`,
+            title: `Investment return: ${earned} euros`,
+            buttons: new Button({
+                title: 'Buy bitcoins now',
+                url: 'https://bitcoins.now/',
+            }),
+            display: 'CROPPED',
+        }));
         agent.add(conv);
     }
 
