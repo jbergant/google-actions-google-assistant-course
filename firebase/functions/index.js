@@ -35,6 +35,10 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
     if ( conv !== null && conv.data.bitcoinInvestment === undefined ) {
         conv.data.bitcoinInvestment = 10000;
     }
+
+    if ( conv !== null && conv.data.bitcoinPrices === undefined ) {
+        conv.data.bitcoinPrices = [];
+    }
     
     if ( conv !== null && conv.data.meetupData === undefined ) {
         conv.data.meetupData = [];
@@ -424,7 +428,7 @@ exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, resp
         let priceThreeYearAgo = formatMoney(investmentThreeYearAgo.investPrice.toFixed(2));
 
         conv.ask(`This is how much you would earn with bitcoin if you invested ${formatMoney(conv.data.bitcoinInvestment)}`);
-        
+
         conv.ask(new BrowseCarousel({
             items: [
                 new BrowseCarouselItem({
@@ -595,19 +599,23 @@ Revenue: ${earned} euros.  \n`,
     }
 
     function getBitcoinPrice(dateToRead) {
+        if ( conv.data.bitcoinPrices.hasOwnProperty(dateToRead) )  {
+            return conv.data.bitcoinPrices[dateToRead];
+        } else {
+            return requestAPI('https://api.coindesk.com/v1/bpi/historical/close.json?start=' + dateToRead+
+                '&end=' + dateToRead + '&currency=eur')
+                .then(function (data) {
+                    let bitcoinPrice = JSON.parse(data);
+                    if (bitcoinPrice.hasOwnProperty('bpi') && bitcoinPrice['bpi'].hasOwnProperty(dateToRead)) {
+                        return bitcoinPrice['bpi'][dateToRead];
+                    }
 
-        return requestAPI('https://api.coindesk.com/v1/bpi/historical/close.json?start=' + dateToRead+
-            '&end=' + dateToRead + '&currency=eur')
-            .then(function (data) {
-                let bitcoinPrice = JSON.parse(data);
-                if (bitcoinPrice.hasOwnProperty('bpi') && bitcoinPrice['bpi'].hasOwnProperty(dateToRead)) {
-                    return bitcoinPrice['bpi'][dateToRead];
-                }
+                }).catch(function (err) {
+                    console.log('No bitcoin data');
+                    console.log(err);
+                });
+        }
 
-            }).catch(function (err) {
-                console.log('No bitcoin data');
-                console.log(err);
-            });
     }
 
     function formatDate(date) {
